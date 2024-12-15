@@ -1,0 +1,46 @@
+import pyaudio
+import numpy as np
+
+# Inicializar PyAudio
+audio = pyaudio.PyAudio()
+
+# Abrir un stream de entrada
+stream_entrada = audio.open(format=pyaudio.paInt16,
+                                channels=1,
+                                rate=44100,
+                                input=True,
+                                frames_per_buffer=1024)
+
+# Abrir un stream de salida
+stream_salida = audio.open(format=pyaudio.paInt16,
+                               channels=1,
+                               rate=34,  # Frecuencia de muestreo mínima para reproducir 17 Hz
+                               output=True,
+                               frames_per_buffer=1024)
+
+while True:
+    # Leer los datos binarios del stream de entrada
+    datos_binarios = stream_entrada.read(1024)
+
+    # Convertir los datos binarios a una matriz de números enteros de 16 bits
+    datos_enteros = np.frombuffer(datos_binarios, dtype=np.int16)
+
+    # Generar una señal de audio con una frecuencia de 17 Hz
+    frecuencia = 17
+    periodo = int(34 / frecuencia)  # Periodo de la señal en muestras
+    datos_enteros_modificados = np.zeros(int(1024 / periodo) * periodo, dtype=np.int16)
+    for i in range(0, len(datos_enteros_modificados), periodo):
+        datos_enteros_modificados[i:i+periodo] = np.sin(2 * np.pi * np.arange(periodo) / periodo) * 32767
+
+    # Convertir la matriz de números enteros de 16 bits a una cadena de bytes
+    datos_binarios_modificados = datos_enteros_modificados.astype(np.int16).tobytes()
+
+    # Escribir los datos binarios modificados en el stream de salida
+    stream_salida.write(datos_binarios_modificados)
+
+# Cerrar los streams y PyAudio
+stream_entrada.stop_stream()
+stream_entrada.close()
+stream_salida.stop_stream()
+stream_salida.close()
+audio.terminate()
