@@ -1,0 +1,69 @@
+import pyaudio
+import wave
+import librosa
+import numpy as np
+import os
+
+# Parámetros de grabación
+FORMAT = pyaudio.paInt16
+CHANNELS = 1
+RATE = 44100
+CHUNK = 1024
+DURATION = 5  # Duración de la grabación en segundos
+
+# Directorio para guardar las grabaciones
+GRABACIONES_DIR = "grabaciones"
+
+# Crear el directorio para guardar las grabaciones si no existe
+if not os.path.exists(GRABACIONES_DIR):
+    os.makedirs(GRABACIONES_DIR)
+
+# Inicializar PyAudio
+audio = pyaudio.PyAudio()
+
+# Abrir stream de entrada
+stream_input = audio.open(format=FORMAT,
+                              channels=CHANNELS,
+                              rate=RATE,
+                              input=True,
+                              frames_per_buffer=CHUNK)
+
+while True:
+    # Grabar audio durante DURATION segundos
+    frames = []
+    for i in range(int(RATE / CHUNK * DURATION)):
+        data = stream_input.read(CHUNK)
+        frames.append(data)
+
+    # Guardar la grabación en un archivo WAV
+    filename = os.path.join(GRABACIONES_DIR, f"grabacion_{len(os.listdir(GRABACIONES_DIR))}.wav")
+    wf = wave.open(filename, "wb")
+    wf.setnchannels(CHANNELS)
+    wf.setsampwidth(audio.get_sample_size(FORMAT))
+    wf.setframerate(RATE)
+    wf.writeframes(b"".join(frames))
+    wf.close()
+
+    # Analizar la grabación para detectar patrones o similitudes
+    y, sr = librosa.load(filename)
+    mfccs = librosa.feature.mfcc(y, sr=sr)
+    mfccs_mean = np.mean(mfccs, axis=1)
+
+    # Comparar la grabación actual con las grabaciones anteriores
+    for file in os.listdir(GRABACIONES_DIR):
+        if file != os.path.basename(filename):
+            y_prev, sr_prev = librosa.load(os.path.join(GRABACIONES_DIR, file))
+            mfccs_prev = librosa.feature.mfcc(y_prev, sr=sr_prev)
+            mfccs_prev_mean = np.mean(mfccs_prev, axis=1)
+
+            # Calcular la similitud entre la grabación actual y la grabación anterior
+            similitud = np.dot(mfccs_mean, mfccs_prev_mean) / (np.linalg.norm(mfccs_mean) * np.linalg.norm(mfccs_prev_mean))
+
+            # Verificar si la similitud es mayor que un umbral determinado
+            if similitud > 0.5:
+                print(f"Se detectó una similitud entre la grabación {os.path.basename(filename)} y la grabación {file}")
+
+# Cerrar stream de entrada y PyAudio
+stream_input.stop_stream()
+stream_input.close()
+audio.terminate() 
