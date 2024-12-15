@@ -1,0 +1,32 @@
+import pyaudio
+
+# Inicializar PyAudio
+audio = pyaudio.PyAudio()
+
+# Abrir un stream de entrada
+stream_entrada = audio.open(format=pyaudio.paInt16,
+                                channels=1,
+                                rate=44100,
+                                input=True,
+                                frames_per_buffer=1024)
+
+# Abrir un stream de salida
+stream_salida = audio.open(format=pyaudio.paInt16,
+                               channels=1,
+                               rate=44100,
+                               output=True,
+                               frames_per_buffer=1024)
+
+while True:
+    # Leer los datos binarios del stream de entrada
+    datos_binarios = stream_entrada.read(1024)
+
+    # Escribir los datos binarios en el stream de salida
+    stream_salida.write(datos_binarios)
+
+# Cerrar los streams y PyAudio
+stream_entrada.stop_stream()
+stream_entrada.close()
+stream_salida.stop_stream()
+stream_salida.close()
+audio.terminate()
