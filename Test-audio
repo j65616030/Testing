@@ -1,0 +1,44 @@
+ import pyaudio
+import numpy as np
+import time
+
+# Parámetros de grabación
+FORMAT = pyaudio.paInt16
+CHANNELS = 1
+RATE = 44100
+CHUNK = 1024
+
+# Inicializar PyAudio
+audio = pyaudio.PyAudio()
+
+# Abrir stream de entrada
+stream_input = audio.open(format=FORMAT,
+                              channels=CHANNELS,
+                              rate=RATE,
+                              input=True,
+                              frames_per_buffer=CHUNK)
+
+while True:
+    # Leer audio desde el stream de entrada
+    data = np.frombuffer(stream_input.read(CHUNK), dtype=np.int16)
+
+    # Convertir audio a valores que puedan ser analizados
+    valores = data.astype(np.float32) / 32768.0
+
+    # Analizar los valores
+    amplitud = np.max(np.abs(valores))
+    frecuencia = np.fft.fftfreq(len(valores), d=1.0/RATE)
+    espectro = np.abs(np.fft.fft(valores))
+
+    # Imprimir los resultados del análisis
+    print("Amplitud:", amplitud)
+    print("Frecuencia:", frecuencia)
+    print("Espectro:", espectro)
+
+    # Pausar la ejecución durante 1 segundo
+    time.sleep(1)
+
+# Cerrar streams y PyAudio
+stream_input.stop_stream()
+stream_input.close()
+audio.terminate()
