@@ -1,6 +1,8 @@
  import pyaudio
 import numpy as np
 import time
+import networkx as nx
+import json
 
 # Parámetros de grabación
 FORMAT = pyaudio.paInt16
@@ -24,7 +26,37 @@ stream_output = audio.open(format=FORMAT,
                               output=True,
                               frames_per_buffer=CHUNK)
 
-# Estructura de datos para almacenar los patrones detectados
+# Crear un grafo vacío
+G = nx.DiGraph()
+
+# Agregar nodos y aristas al grafo
+def agregar_patron(G, patron, subpatrones):
+    G.add_node(patron)
+    for subpatron in subpatrones:
+        G.add_node(subpatron)
+        G.add_edge(patron, subpatron)
+
+# Convertir el grafo a un diccionario JSON
+def grafo_a_json(G):
+    json_G = {"nodos": [], "aristas": []}
+    for nodo in G.nodes():
+        json_G["nodos"].append({"id": nodo})
+    for arista in G.edges():
+        json_G["aristas"].append({"fuente": arista[0], "destino": arista[1]})
+    return json_G
+
+# Leer el archivo JSON y convertirlo a un grafo
+def json_a_grafo(archivo):
+    with open(archivo, "r") as archivo_json:
+        json_G = json.load(archivo_json)
+    G = nx.DiGraph()
+    for nodo in json_G["nodos"]:
+        G.add_node(nodo["id"])
+    for arista in json_G["aristas"]:
+        G.add_edge(arista["fuente"], arista["destino"])
+    return G
+
+# Detección de patrones y subpatrones
 patrones_detectados = []
 
 while True:
@@ -39,9 +71,12 @@ while True:
     frecuencia = np.fft.fftfreq(len(valores), d=1.0/RATE)
     espectro = np.abs(np.fft.fft(valores))
 
-    # Detectar patrones y almacenarlos en la estructura de datos
+    # Detectar patrones y subpatrones
     if amplitud > 0.5:  # Umbral para detectar patrones
-        patrones_detectados.append((amplitud, frecuencia, espectro))
+        patron = "Patron_{}".format(len(patrones_detectados))
+        subpatrones = ["Subpatron_{}".format(i) for i in range(5)]
+        patrones_detectados.append((patron, subpatrones))
+        agregar_patron(G, patron, subpatrones)
 
     # Imprimir los resultados del análisis
     print("Amplitud:", amplitud)
@@ -53,6 +88,11 @@ while True:
 
     # Pausar la ejecución durante 1 segundo
     time.sleep(1)
+
+    # Almacenar el grafo en un archivo JSON
+    json_G = grafo_a_json(G)
+    with open("patrones.json", "w") as archivo:
+        json.dump(json_G, archivo, indent=4)
 
 # Cerrar streams y PyAudio
 stream_input.stop_stream()
